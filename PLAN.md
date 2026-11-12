@@ -5,11 +5,11 @@
 - [x] M0.1 — driver laptop (module 595-open cho kernel 7.0.0-38 đã nạp, nvidia-smi OK)
 - [x] M0.2 — uv venv + thư viện (torch 2.15+cu132, MoGe, SAM2, MediaPipe, transformers)
 - [x] M0.3 — dataset subset + submission kit
-- [ ] M0.4 — server 4090 audit (chờ .env)
+- [x] M0.4 — server 4090 audit (4090 24 GB, driver 580.178, Docker+nvidia runtime, workdir /data2/huyhoang/v2d; GPU dùng chung: job người khác chiếm ~14.7 GB)
 - [x] M1 — demo perception Track 1 trên laptop (ep09: 60 frame, 16-51 s, VRAM 1.75 GB, outputs/ep09)
-- [ ] M2 — FlashCHORD replay + train mini trên 4090
+- [x] M2 — FlashCHORD trên 4090: replay khởi động OK (chưa xem bằng mắt qua viser), train mini 512 world / 20M step (40 phút, VRAM 5.8 GB, GPU dùng chung) → **MPPE 0.64 cm, success 93.4 %** (`/data2/huyhoang/v2d/outputs/sharpa_mini`)
 - [ ] M3 — Track 1 submission format (tùy chọn)
-- [x] M4 (laptop) — export ONNX + int8 NNCF/OpenVINO đạt AbsRel 0.5%, 7.5 FPS CPU; [ ] M4 (board thật) chờ bạn chốt board
+- [x] M4 (laptop) — export ONNX + int8 NNCF/OpenVINO đạt AbsRel 0.5%, 7.5 FPS CPU; [x] M4 export policy thật → ONNX (`deploy/export_flashsac_onnx.py`): khớp JAX fp32 6.4e-6, 0.095 ms/step CPU, vòng kín trong sim MPPE 0.62 cm / success 92.4 %; [ ] M4 board thật: **Renesas R-Car X5H** (user chốt 12/11, chưa có board)
 
 ## Context
 

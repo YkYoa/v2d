@@ -74,3 +74,10 @@ NVIDIA **Video to Data (V2D) Challenge** (CoRL 2026): đo xem "pipeline từ vid
 - Policy export: Isaac Lab `isaaclab_rl.rsl_rl.exporter.export_policy_as_onnx`; https://isaac-sim.github.io/IsaacLab/main/source/policy_deployment/
 - RK3588: https://github.com/airockchip/rknn-toolkit2 ; https://docs.ultralytics.com/integrations/rockchip-rknn/ ; https://emapco.github.io/rk-transformers/user_guide/export.html
 - Hailo: https://community.hailo.ai/t/deploy-state-of-the-art-vit-model/3627
+
+## Bảng xếp hạng lúc đóng (tra ngày 2026-11-12, trước lễ công bố)
+Nguồn: `leaderboard.json` của https://github.com/MVerghese/v2d-leaderboard-data (scrape 2026-11-09, sau freeze 4/11). Chưa có thông báo winner chính thức trên trang challenge/tutorial; kết quả còn "provisional pending container checks".
+- **Track 1:** 1) xpz666 — CD-H 11.37 / CD-O 16.29; 2) Rice RobotPI Lab — 11.83 / 15.45; 3) mparrrk — 12.38 / 16.02.
+- **Track 2 (T1 / T2 / T3 AUC):** 1) Rice RobotPI Lab — 0.949 / 0.823 / 0.616 (MPPE T1 0.84 cm); 2) MBZUAI-RCL Group — 0.931 / 0.714 / 0.469; 3) Izus_systems (T1, T2) — 0.890 / 0.644; domoarigato hạng 3 ở T3 (0.409).
+- **Track 3 (chưa đối chiếu file gốc):** 1) richchentw — AUC 0.985, MPPE 0.60 cm; 2) DDD — 0.953; 3) Zihao Guo — 0.935.
+- Chưa tìm thấy repo/báo cáo công khai của các đội đứng đầu. Repo Track 2 khác có mô tả phương pháp: https://github.com/Rongxuan-Zhou/v2d-track2-robotic-grounding (Maniphys Lab: mỗi episode một policy FlashCHORD + reward hướng vật), https://github.com/isyed/v2d-technical-reports (báo cáo 2 trang Track 1, 2).
