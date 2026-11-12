@@ -5,6 +5,7 @@
 - `docs/kit/` — submission kit + FAQ chính thức.
 - `demo_track1/` — M1: video → depth + mask + keypoint 3D (laptop).
 - `server/` — M2/M3: script chạy trên server 4090 qua `server/ssh.sh`.
+- `track1_submit/` — M3: fit MHR từ keypoint, mesh + quỹ đạo vật từ depth, đóng gói bằng kit chính thức.
 - `deploy/` — M4: export ONNX, quantize, runtime cho board không-NVIDIA.
 
 ```bash

@@ -8,7 +8,7 @@
 - [x] M0.4 — server 4090 audit (4090 24 GB, driver 580.178, Docker+nvidia runtime, workdir /data2/huyhoang/v2d; GPU dùng chung: job người khác chiếm ~14.7 GB)
 - [x] M1 — demo perception Track 1 trên laptop (ep09: 60 frame, 16-51 s, VRAM 1.75 GB, outputs/ep09)
 - [x] M2 — FlashCHORD trên 4090: replay khởi động OK (chưa xem bằng mắt qua viser), train mini 512 world / 20M step (40 phút, VRAM 5.8 GB, GPU dùng chung) → **MPPE 0.64 cm, success 93.4 %** (`/data2/huyhoang/v2d/outputs/sharpa_mini`)
-- [ ] M3 — Track 1 submission format (tùy chọn)
+- [x] M3 — Track 1 đúng format submission cho ep09 (đường không model gated: MoGe-2 + SAM2.1 + MediaPipe → fit MHR + mesh/ICP từ depth; `server/m3_track1.sh`, `track1_submit/`): packer chính thức + đọc ngược OK; [ ] sample thật + điểm Kaggle (cần `KAGGLE_*`, 30 episode)
 - [x] M4 (laptop) — export ONNX + int8 NNCF/OpenVINO đạt AbsRel 0.5%, 7.5 FPS CPU; [x] M4 export policy thật → ONNX (`deploy/export_flashsac_onnx.py`): khớp JAX fp32 6.4e-6, 0.095 ms/step CPU, vòng kín trong sim MPPE 0.62 cm / success 92.4 %; [ ] M4 board thật: **Renesas R-Car X5H** (user chốt 12/11, chưa có board)
 
 ## Context
