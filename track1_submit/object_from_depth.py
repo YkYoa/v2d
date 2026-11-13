@@ -103,20 +103,32 @@ def main():
     ap.add_argument("--ref", type=int, default=-1, help="frame tham chiếu (-1: frame có nhiều pixel vật nhất trong 30 frame đầu)")
     ap.add_argument("--thickness", type=float, default=0.03); ap.add_argument("--mesh-step", type=int, default=2)
     ap.add_argument("--n-model", type=int, default=4000); ap.add_argument("--n-frame", type=int, default=2500)
-    ap.add_argument("--smooth", type=int, default=15)
+    ap.add_argument("--smooth", type=int, default=15); ap.add_argument("--max-step-deg", type=float, default=25.0)
+    ap.add_argument("--nlf", default=None, help="vd clouds_nlf.npz"); ap.add_argument("--z-clamp", type=float, default=0.0)
     a = ap.parse_args()
     run = Path(a.run); stems = [p.stem for p in sorted((run / "frames").glob("*.jpg"))]; T = len(stems)
     rng = np.random.default_rng(0)
 
-    clouds = []
-    for s in stems:
-        pts, m, _ = object_points(run, s)
-        clouds.append(clean(pts[m]) if pts is not None and m.sum() > 50 else np.zeros((0, 3)))
+    clouds = []; dscale = np.ones(T); person_z = None
+    if (run / "clouds.npz").exists():                         # v2: cloud đã lọc + depth đã hiệu chỉnh tỉ lệ theo nền tĩnh (prep_clouds.py)
+        c = np.load(run / "clouds.npz"); dscale = c["scale"]
+        pz = np.nanmedian(c["person"][..., 2], 1)
+        if a.nlf and (run / a.nlf).exists():                  # v4: đưa mọi điểm MoGe về thang của NLF; độ sâu người = độ sâu thân NLF
+            cn = np.load(run / a.nlf); g = float(cn["g"]); dscale = dscale * g
+            clouds = [q * g for q in clouds]; pz = np.nanmedian(cn["person"][..., 2], 1)
+            print(f"NLF: g = {g:.4f} áp cho vật")
+        ok = np.isfinite(pz)
+        person_z = np.interp(np.arange(T), np.flatnonzero(ok), pz[ok]) if ok.sum() >= 2 else None
+        clouds = [q[np.isfinite(q[:, 0])].astype(np.float64) for q in c["object"]]
+    else:
+        for s in stems:
+            pts, m, _ = object_points(run, s)
+            clouds.append(clean(pts[m]) if pts is not None and m.sum() > 50 else np.zeros((0, 3)))
     n = np.array([len(c) for c in clouds])
     ref = int(np.argmax(n[:30])) if a.ref < 0 else a.ref
     print(f"T={T}, điểm vật/frame: trung vị {int(np.median(n))}, min {n.min()}, frame thiếu {(n < 50).sum()}; frame tham chiếu {ref} ({n[ref]} điểm)")
 
-    pts, m, _ = object_points(run, stems[ref])
+    pts, m, _ = object_points(run, stems[ref]); pts = pts * dscale[ref]
     zc = clean(pts[m]); zlo, zhi = zc[:, 2].min(), zc[:, 2].max()
     m &= (pts[..., 2] >= zlo) & (pts[..., 2] <= zhi)
     V, F = surface_mesh(pts, m, a.mesh_step, a.thickness)
@@ -131,7 +143,7 @@ def main():
     print(f"mesh: {len(V)} đỉnh, {len(F)} mặt, kích thước OBB {np.round(np.sort(ext)[::-1], 2)} m → {out.with_suffix('.glb')}")
 
     model = clouds[ref][rng.choice(len(clouds[ref]), min(a.n_model, len(clouds[ref])), replace=False)] - center
-    R = np.tile(np.eye(3), (T, 1, 1)); t = np.zeros((T, 3)); err = np.full(T, np.nan)
+    R = np.tile(np.eye(3), (T, 1, 1)); t = np.zeros((T, 3)); err = np.full(T, np.nan); flipped = np.zeros(T, bool)
 
     def sweep(order, R0, t0):
         Rc, tc = R0, t0
@@ -142,19 +154,55 @@ def main():
             f = c[rng.choice(len(c), min(a.n_frame, len(c)), replace=False)]
             # khởi tạo: pose trước + dịch theo tâm (vật bị bê đi nhanh hơn ICP hội tụ)
             guess_t = tc + (f.mean(0) - (model @ Rc.T + tc).mean(0))
-            Rc, tc, err[i] = icp(model, None, f, Rc, guess_t)
+            Rn, tn, err[i] = icp(model, None, f, Rc, guess_t)
+            if Rotation.from_matrix(Rn @ Rc.T).magnitude() > np.radians(a.max_step_deg):
+                # nhảy xoay quá lớn trong 1 frame = ICP lật trên bề mặt đối xứng/mỏng → giữ hướng cũ, chỉ dịch theo tâm
+                Rn, tn = Rc, guess_t; flipped[i] = True
+            Rc, tc = Rn, tn
             R[i], t[i] = Rc, tc
 
     sweep(range(ref, T), np.eye(3), center.copy())
     sweep(range(ref - 1, -1, -1), np.eye(3), center.copy())
+    # ---- loại frame hỏng (mask mất/nhảy sang vật khác, ICP sai) rồi nội suy: vị trí vật sai 1 m tệ hơn nhiều so với nội suy
+    cent = np.array([np.median(c, 0) if len(c) >= 50 else [np.nan] * 3 for c in clouds])
+    from scipy.ndimage import median_filter
+    cf = np.stack([np.interp(np.arange(T), np.flatnonzero(np.isfinite(cent[:, k])), cent[np.isfinite(cent[:, k]), k]) for k in range(3)], 1)
+    cmed = median_filter(cf, size=(15, 1), mode="nearest")
+    emed = np.nanmedian(err)
+    valid = (n >= 50) & np.isfinite(err) & (err < max(3 * emed, 0.03)) & (np.linalg.norm(cf - cmed, axis=1) < 0.25)         & (np.linalg.norm(t - cf, axis=1) < 0.30)
+    # vật mảnh/bóng (vòng hula…): depth trong mask hay là depth NỀN nhìn xuyên qua → vật "bay" ra sau 1–2 m khi đang được cầm.
+    # Khi vật đã rời vị trí nghỉ (đầu/cuối clip) mà depth lệch người > 0.7 m thì không tin depth: giữ hướng tia nhìn, đặt ở độ sâu của người.
+    bad_depth = np.zeros(T, bool)
+    if person_z is not None:
+        fin = np.flatnonzero(np.isfinite(cent[:, 0]))
+        rest0, rest1 = np.median(cent[fin[:15]], 0), np.median(cent[fin[-15:]], 0)
+        atrest = np.minimum(np.linalg.norm(cf - rest0, axis=1), np.linalg.norm(cf - rest1, axis=1)) < 0.10
+        bad_depth = ~atrest & (np.abs(cf[:, 2] - person_z) > 0.7) & np.isfinite(cent[:, 0])
+        t[bad_depth] = cf[bad_depth] / cf[bad_depth, 2:3] * person_z[bad_depth, None]
+    valid[ref] = True
+    valid_r = valid & ~bad_depth; valid_t = valid_r | bad_depth
+    from scipy.spatial.transform import Slerp
+    if valid_t.sum() >= 2 and not valid_t.all():
+        vi = np.flatnonzero(valid_t); ti = np.clip(np.arange(T), vi[0], vi[-1])
+        t = np.stack([np.interp(ti, vi, t[vi, k]) for k in range(3)], 1)
+    if valid_r.sum() >= 2 and not valid_r.all():
+        vi = np.flatnonzero(valid_r); ti = np.clip(np.arange(T), vi[0], vi[-1])
+        R = Slerp(vi, Rotation.from_matrix(R[vi]))(ti).as_matrix()
+    print(f"frame hợp lệ {int(valid.sum())}/{T}; depth vật không tin được {int(bad_depth.sum())}; frame bị chặn nhảy xoay {int(flipped.sum())}")
     w = min(a.smooth, T - (1 - T % 2)); w -= 1 - w % 2
     Rs = smooth_rotations(R, w); ts = savgol_filter(t, w, 2, axis=0, mode="nearest")
+    if a.z_clamp > 0 and person_z is not None:
+        # vật đang được thao tác nằm trong tầm tay: |z_vật − z_người| ≤ z_clamp, giữ nguyên tia nhìn (dò bằng Kaggle: 0.3 m tốt nhất)
+        pzs = savgol_filter(person_z, w, 2, mode="nearest")
+        zn = pzs + np.clip(ts[:, 2] - pzs, -a.z_clamp, a.z_clamp)
+        ts = savgol_filter(ts * (zn / ts[:, 2])[:, None], w, 2, axis=0, mode="nearest")
     acc = np.linalg.norm(ts[2:] - 2 * ts[1:-1] + ts[:-2], axis=1).mean() * 100
     ang = np.degrees(Rotation.from_matrix(Rs).magnitude())
     report = {"frames": T, "ref_frame": ref, "icp_err_cm_median": float(np.nanmedian(err) * 100),
               "icp_err_cm_p95": float(np.nanpercentile(err, 95) * 100), "translation_accel_cm_per_frame2": float(acc),
               "max_rotation_from_ref_deg": float(ang.max()), "travel_m": float(np.linalg.norm(ts.max(0) - ts.min(0))),
-              "mesh_vertices": int(len(V)), "mesh_faces": int(len(F))}
+              "mesh_vertices": int(len(V)), "mesh_faces": int(len(F)),
+              "valid_frames": int(valid.sum()), "bad_depth_frames": int(bad_depth.sum()), "rotation_jump_blocked": int(flipped.sum())}
     print("report:", json.dumps(report))
     np.savez(out.parent / (out.name + "_track.npz"), object_rotation=Rs.astype(np.float32),
              object_translation=ts.astype(np.float32), object_scale=np.float32(1.0), icp_err=err, report=json.dumps(report))

@@ -8,7 +8,12 @@
 - [x] M0.4 — server 4090 audit (4090 24 GB, driver 580.178, Docker+nvidia runtime, workdir /data2/huyhoang/v2d; GPU dùng chung: job người khác chiếm ~14.7 GB)
 - [x] M1 — demo perception Track 1 trên laptop (ep09: 60 frame, 16-51 s, VRAM 1.75 GB, outputs/ep09)
 - [x] M2 — FlashCHORD trên 4090: replay khởi động OK (chưa xem bằng mắt qua viser), train mini 512 world / 20M step (40 phút, VRAM 5.8 GB, GPU dùng chung) → **MPPE 0.64 cm, success 93.4 %** (`/data2/huyhoang/v2d/outputs/sharpa_mini`)
-- [x] M3 — Track 1 đúng format submission cho ep09 (đường không model gated: MoGe-2 + SAM2.1 + MediaPipe → fit MHR + mesh/ICP từ depth; `server/m3_track1.sh`, `track1_submit/`): packer chính thức + đọc ngược OK; [ ] sample thật + điểm Kaggle (cần `KAGGLE_*`, 30 episode)
+- [x] M3 — Track 1 đúng format submission cho ep09 (đường không model gated: MoGe-2 + SAM2.1 + MediaPipe → fit MHR + mesh/ICP từ depth; `server/m3_track1.sh`, `track1_submit/`): packer chính thức + đọc ngược OK; [x] 30/30 episode đóng gói với sample thật (`outputs/m3/track1_submission.parquet`, 740,780 dòng, 13/11); [x] điểm Kaggle late submission 13/11: CD-H 40.59 · CD-O 80.38 · ACC-H 0.298 · ACC-O 0.601 · PEN 0.0016 (cm)
+- [x] M3 v2 — cải thiện CD-H/CD-O (hiệu chỉnh depth theo nền tĩnh, fit bề mặt + shape, lọc quỹ đạo vật): Kaggle 13/11 CD-H 40.59→34.91 · CD-O 80.38→67.49 · ACC-H 0.298→0.221 · ACC-O 0.601→0.351 · PEN 0.0016→0.0022
+- [ ] M3 v3 — mục tiêu baseline NVIDIA (CD-H 15.6 / CD-O 23.2): mới tới CD-H 34.91 / CD-O 47.74 (v2 + giới hạn độ sâu vật–người 0.3 m). Đã loại trừ lật trước/sau và tiêu cự. Bước kế cần model cơ thể 3D (NLF: phi thương mại; SAM 3D Body: xin quyền) — chờ user quyết định
+- [ ] M2b — G1 + Dex3 mini (snack-box, 256 world / 20M step, 80 phút): train chạy được nhưng 0% thành công (MPPE 57.9 cm); cần ngân sách lớn hơn nhiều
+- [ ] Demo A — video điện thoại → robot trong sim, KHÔNG MANO / SAM 3 (`phone_demo/`, `server/phone_demo.sh`, giấy phép `docs/LICENSES.md`): [x] retarget không-MANO tự kiểm trên mẫu NVIDIA → train 99.8 % / MPPE 0.50 cm; [x] perception trên clip iPhone của NVIDIA (hộp ICP 3.7 mm, tay 2 bên đúng); [ ] train + eval trên tham chiếu từ video (đang chạy 13/11); [ ] clip tự quay của user; [ ] GR00T N1.7 fine-tune
+- Sau challenge: xem `docs/POST_CHALLENGE_PLAN.md` (Demo B policy trên R-Car X5H → Demo A video điện thoại → robot trong sim)
 - [x] M4 (laptop) — export ONNX + int8 NNCF/OpenVINO đạt AbsRel 0.5%, 7.5 FPS CPU; [x] M4 export policy thật → ONNX (`deploy/export_flashsac_onnx.py`): khớp JAX fp32 6.4e-6, 0.095 ms/step CPU, vòng kín trong sim MPPE 0.62 cm / success 92.4 %; [ ] M4 board thật: **Renesas R-Car X5H** (user chốt 12/11, chưa có board)
 
 ## Context

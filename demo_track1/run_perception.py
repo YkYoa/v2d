@@ -109,7 +109,7 @@ def run_moge(frames: list[Path], out: Path, model_name: str, device: str) -> Non
         img = cv2.cvtColor(cv2.imread(str(p)), cv2.COLOR_BGR2RGB)
         t = torch.tensor(img / 255.0, dtype=torch.float32, device=device).permute(2, 0, 1)
         with torch.no_grad(), torch.autocast(device_type="cuda", dtype=dtype, enabled=device == "cuda"):
-            o = model.infer(t)
+            o = model.infer(t, use_fp16=device == "cuda")   # CPU: autocast fp16 làm lệch dtype conv
         depth = o["depth"].float().cpu().numpy()
         mask = o["mask"].cpu().numpy() if "mask" in o else np.isfinite(depth)
         K = o["intrinsics"].float().cpu().numpy()  # normalized [0,1] intrinsics
